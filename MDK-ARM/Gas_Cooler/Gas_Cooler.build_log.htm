@@ -27,11 +27,48 @@ Project File Date:  01/04/2021
 <h2>Output:</h2>
 *** Using Compiler 'V5.06 update 4 (build 422)', folder: 'C:\Keil_v5\ARM\ARMCC\Bin'
 Build target 'Gas_Cooler'
-compiling tim.c...
+compiling main.c...
+../Core/Src/main.c(109): warning:  #1295-D: Deprecated declaration swing_process - give arg types
+  void swing_process();
+../Core/Src/main.c(613): warning:  #188-D: enumerated type mixed with another type
+  					HAL_GPIO_WritePin(
+wing_M_1_GPIO_Port,
+wing_M_1_Pin,(swing_info.dir==1)?swing_loop_count%4==0:swing_loop_count%4==3);
+../Core/Src/main.c(614): warning:  #188-D: enumerated type mixed with another type
+  					HAL_GPIO_WritePin(
+wing_M_2_GPIO_Port,
+wing_M_2_Pin,(swing_info.dir==1)?swing_loop_count%4==1:swing_loop_count%4==2);
+../Core/Src/main.c(615): warning:  #188-D: enumerated type mixed with another type
+  					HAL_GPIO_WritePin(
+wing_M_3_GPIO_Port,
+wing_M_3_Pin,(swing_info.dir==1)?swing_loop_count%4==2:swing_loop_count%4==1);
+../Core/Src/main.c(616): warning:  #188-D: enumerated type mixed with another type
+  					HAL_GPIO_WritePin(
+wing_M_4_GPIO_Port,
+wing_M_4_Pin,(swing_info.dir==1)?swing_loop_count%4==3:swing_loop_count%4==0);
+../Core/Src/main.c(678): warning:  #188-D: enumerated type mixed with another type
+  				HAL_GPIO_WritePin(
+low_M_1_GPIO_Port,
+low_M_1_Pin,(air_flow_loop_count<300*3)?(air_flow_loop_count%4==0):air_flow_loop_count%4==3);
+../Core/Src/main.c(679): warning:  #188-D: enumerated type mixed with another type
+  				HAL_GPIO_WritePin(
+low_M_2_GPIO_Port,
+low_M_2_Pin,(air_flow_loop_count<300*3)?(air_flow_loop_count%4==1):air_flow_loop_count%4==2);
+../Core/Src/main.c(680): warning:  #188-D: enumerated type mixed with another type
+  				HAL_GPIO_WritePin(
+low_M_3_GPIO_Port,
+low_M_3_Pin,(air_flow_loop_count<300*3)?(air_flow_loop_count%4==2):air_flow_loop_count%4==1);
+../Core/Src/main.c(681): warning:  #188-D: enumerated type mixed with another type
+  				HAL_GPIO_WritePin(
+low_M_4_GPIO_Port,
+low_M_4_Pin,(air_flow_loop_count<300*3)?(air_flow_loop_count%4==3):air_flow_loop_count%4==0);
+../Core/Src/main.c(743): warning:  #177-D: variable "p"  was declared but never referenced
+  	int p=Power;
+../Core/Src/main.c: 10 warnings, 0 errors
 linking...
-Program Size: Code=12138 RO-data=254 RW-data=140 ZI-data=2484  
+Program Size: Code=12194 RO-data=254 RW-data=152 ZI-data=2512  
 FromELF: creating hex file...
-"Gas_Cooler\Gas_Cooler.axf" - 0 Error(s), 0 Warning(s).
+"Gas_Cooler\Gas_Cooler.axf" - 0 Error(s), 10 Warning(s).
 
 <h2>Software Packages used:</h2>
 
@@ -49,7 +86,7 @@ Package Vendor: ARM
 <h2>Collection of Component Files used:</h2>
 
    * Component: ARM::CMSIS:CORE:5.0.1
-Build Time Elapsed:  00:00:00
+Build Time Elapsed:  00:00:02
 </pre>
 </body>
 </html>
