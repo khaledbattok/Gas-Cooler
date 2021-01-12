@@ -73,6 +73,7 @@ uint32_t pageAddress_start=0x0800E000;
 uint32_t pageAddress_Set_Point=0x0800E800;
 uint32_t PAGEError=0;
 int Work_Mode;
+int auto_mode_selected;
 int status_flash;
 int dir_counter;
 struct swing_INFO{
@@ -89,6 +90,7 @@ int adc_temp_avg,ind;
 int swing_level;
 int level_work;
 int indoor_fan_mode;
+int comprasor_dry_count;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -185,14 +187,284 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  if(auto_mode_selected)
+	  {
+			if(envirment_temp>27 && Work_Mode!=cool_mode){
+				Work_Mode=cool_mode;
+				level_work=0;
+			}
+			else if(envirment_temp<23 && Work_Mode!=heat_mode){
+				Work_Mode=heat_mode;
+				level_work=0;
+			}
+			else if((Work_Mode==heat_mode && envirment_temp>25) || (Work_Mode==cool_mode && envirment_temp<25) ){
+				Work_Mode=fan_mode;
+			}
+			else if(((Work_Mode!=heat_mode) || (Work_Mode!=cool_mode))){
+				Work_Mode=fan_mode;
+			}
+	  }
 	  switch(Work_Mode)
 	  {
-		case auto_mode:
-		break;
 		case cool_mode:
-			
+			if(level_work==0)
+			{
+				if(HAL_GPIO_ReadPin(Compressor_GPIO_Port,Compressor_Pin))
+				{
+					HAL_GPIO_WritePin(Compressor_GPIO_Port,Compressor_Pin,GPIO_PIN_RESET);
+					HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_RESET);
+					comprasor_count=0;
+					ElecValve_count=0;
+				}
+				else if(HAL_GPIO_ReadPin(ElecValve_GPIO_Port,ElecValve_Pin) && ElecValve_count*0.5/60>2)
+				{
+					HAL_GPIO_WritePin(ElecValve_GPIO_Port,ElecValve_Pin,GPIO_PIN_RESET);
+				}
+				else if(HAL_GPIO_ReadPin(Compressor_GPIO_Port,Compressor_Pin)==GPIO_PIN_RESET && HAL_GPIO_ReadPin(ElecValve_GPIO_Port,ElecValve_Pin)==GPIO_PIN_RESET)
+					level_work=1;
+				if(Is_Indoor_Fan_On()){
+					fan_indoor(-1);
+				}
+			}
+			if(Power==3 && level_work==1)
+			{
+				if(swing_level<0 || swing_level==10)
+					swing_level=0;
+				if(temp_setpoint<envirment_temp+2)
+					{
+						if(comprasor_count*0.5/60>3)
+						{
+							HAL_GPIO_WritePin(Compressor_GPIO_Port,Compressor_Pin,GPIO_PIN_SET);
+							HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_SET);
+						}
+					}
+					else if((temp_setpoint>envirment_temp-2) && HAL_GPIO_ReadPin(Compressor_GPIO_Port,Compressor_Pin)==GPIO_PIN_SET)
+					{
+						HAL_GPIO_WritePin(Compressor_GPIO_Port,Compressor_Pin,GPIO_PIN_RESET);
+						HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_RESET);
+						comprasor_count=0;
+					}
+				fan_indoor(indoor_fan_mode);
+				if(swing_level==0 && swing_loop_count==0)
+				{
+					swing_info.on_flag=1;
+					swing_info.dir=1;
+					swing_info.n=170*4;
+					swing_info.off_time=0;
+					swing_info.step=1;
+				}
+				else if(swing_level==0 && swing_info.on_flag==0)
+				{
+					swing_level=1;
+					swing_loop_count=0;
+				}
+				else if(swing_level==1 && swing_loop_count==0)
+				{
+					swing_info.on_flag=1;
+					swing_info.dir=2;
+					swing_info.n=130*4;
+					swing_info.off_time=0;
+					swing_info.step=1;
+				}
+				else if(swing_level==1 && swing_info.on_flag==0)
+				{
+					swing_level=2;
+					swing_loop_count=0;
+				}
+				else if(swing_level==2 && swing_loop_count==0)
+				{
+					swing_info.on_flag=1;
+					swing_info.dir=1;
+					swing_info.n=100*4;
+					swing_info.off_time=0;
+					swing_info.step=(swing_mode!=11);
+				}
+				else if(swing_level==2 && swing_info.on_flag==0)
+				{
+					swing_level=3;
+					swing_loop_count=0;
+				}
+				else if(swing_level==3 && swing_loop_count==0)
+				{
+					swing_info.on_flag=1;
+					swing_info.dir=2;
+					swing_info.n=100*4;
+					swing_info.off_time=30;
+					swing_info.step=(swing_mode!=11);
+				}
+				else if(swing_level==3 && swing_info.on_flag==0)
+				{
+					swing_level=2;
+					swing_loop_count=0;
+				}	
+			}
+			else if(Power==0 && level_work==1)
+			{
+				if(HAL_GPIO_ReadPin(Compressor_GPIO_Port,Compressor_Pin))
+				{
+					HAL_GPIO_WritePin(Compressor_GPIO_Port,Compressor_Pin,GPIO_PIN_RESET);
+					HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_RESET);
+					comprasor_count=0;
+				}
+				if(swing_level>=0)
+				{
+					swing_info.on_flag=1;
+					swing_info.dir=1;
+					swing_info.n=170*4;
+					swing_loop_count=0;
+					swing_info.off_time=0;
+					swing_level=-1;
+				}
+				else if(swing_info.on_flag==0 && swing_level==-1)
+				{
+					swing_info.on_flag=1;
+					swing_info.dir=2;
+					swing_info.n=130*4;
+					swing_loop_count=0;
+					swing_info.off_time=30;
+					count_fan=0;
+					swing_mode=01;
+					swing_level=-2;
+				}
+				
+				else if(swing_info.on_flag==0 && swing_level==-2){
+					swing_loop_count=0;
+					if(count_fan*0.5>30)
+					{
+						fan_indoor(-1);
+						swing_level=-3;
+						swing_info.on_flag=1;
+						swing_info.dir=2;
+						swing_info.n=60*4;
+						swing_loop_count=0;
+						swing_info.off_time=0;
+					}
+				}
+				else if(swing_info.on_flag==0 && swing_level==-3)
+				{
+					swing_loop_count=0;
+					level_work=0;
+					Work_Mode=0;
+				}
+			}
+
 		break;
 		case dry_mode:
+			if(level_work==0)
+			{
+				if(HAL_GPIO_ReadPin(Compressor_GPIO_Port,Compressor_Pin))
+				{
+					HAL_GPIO_WritePin(Compressor_GPIO_Port,Compressor_Pin,GPIO_PIN_RESET);
+					HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_RESET);
+					comprasor_count=0;
+					ElecValve_count=0;
+				}
+				else if(HAL_GPIO_ReadPin(ElecValve_GPIO_Port,ElecValve_Pin) && ElecValve_count*0.5/60>2)
+				{
+					HAL_GPIO_WritePin(ElecValve_GPIO_Port,ElecValve_Pin,GPIO_PIN_RESET);
+				}
+				else if(HAL_GPIO_ReadPin(Compressor_GPIO_Port,Compressor_Pin)==GPIO_PIN_RESET && HAL_GPIO_ReadPin(ElecValve_GPIO_Port,ElecValve_Pin)==GPIO_PIN_RESET)
+					{level_work=1;comprasor_dry_count=1200;count_fan=0;}
+				if(Is_Indoor_Fan_On()){
+					fan_indoor(-1);
+				}
+			}
+			if(Power==3 && level_work==1)
+			{
+				if(swing_level<0 || swing_level==10)
+					swing_level=0;
+				if(comprasor_count*0.5/60>3 && HAL_GPIO_ReadPin(Compressor_GPIO_Port,Compressor_Pin)==GPIO_PIN_RESET && comprasor_dry_count*0.5/60>7)
+				{
+					HAL_GPIO_WritePin(Compressor_GPIO_Port,Compressor_Pin,GPIO_PIN_SET);
+					HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_SET);
+					comprasor_dry_count=0;
+				}
+				else if(HAL_GPIO_ReadPin(Compressor_GPIO_Port,Compressor_Pin)==GPIO_PIN_SET && comprasor_dry_count*0.5/60>5)
+				{
+					HAL_GPIO_WritePin(Compressor_GPIO_Port,Compressor_Pin,GPIO_PIN_RESET);
+					HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_RESET);
+					comprasor_count=0;
+					comprasor_dry_count=0;
+				}
+				fan_indoor(indoor_fan_mode);
+				if(swing_level==0 && swing_loop_count==0)
+				{
+					swing_info.on_flag=1;
+					swing_info.dir=1;
+					swing_info.n=170*4;
+					swing_info.off_time=0;
+					swing_info.step=1;
+				}
+				else if(swing_level==0 && swing_info.on_flag==0)
+				{
+					swing_level=1;
+					swing_loop_count=0;
+				}
+				else if(swing_level==1 && swing_loop_count==0)
+				{
+					swing_info.on_flag=1;
+					swing_info.dir=2;
+					swing_info.n=90*4;
+					swing_info.off_time=0;
+					swing_info.step=1;
+				}
+				else if(swing_level==1 && swing_info.on_flag==0)
+				{
+					swing_level=2;
+					swing_loop_count=0;
+				}
+			}
+			else if(Power==0 && level_work==1)
+			{
+				if(HAL_GPIO_ReadPin(Compressor_GPIO_Port,Compressor_Pin))
+				{
+					HAL_GPIO_WritePin(Compressor_GPIO_Port,Compressor_Pin,GPIO_PIN_RESET);
+					HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_RESET);
+					comprasor_count=0;
+				}
+				if(swing_level>=0)
+				{
+					swing_info.on_flag=1;
+					swing_info.dir=1;
+					swing_info.n=170*4;
+					swing_loop_count=0;
+					swing_info.off_time=0;
+					swing_level=-1;
+				}
+				else if(swing_info.on_flag==0 && swing_level==-1)
+				{
+					swing_info.on_flag=1;
+					swing_info.dir=2;
+					swing_info.n=130*4;
+					swing_loop_count=0;
+					swing_info.off_time=30;
+					swing_mode=01;
+					swing_level=-2;
+				}
+				
+				else if(swing_info.on_flag==0 && swing_level==-2){
+					swing_loop_count=0;
+					count_fan=0;
+					swing_level=-3;
+				}
+				else if(swing_info.on_flag==0 && swing_level==-3){
+				if(count_fan*0.5>30)
+					{
+						fan_indoor(-1);
+						swing_level=-4;
+						swing_info.on_flag=1;
+						swing_info.dir=2;
+						swing_info.n=60*4;
+						swing_loop_count=0;
+						swing_info.off_time=0;
+					}
+				}
+				else if(swing_info.on_flag==0 && swing_level==-4)
+				{
+					swing_loop_count=0;
+				}
+			}	
+
 		break;
 		case heat_mode:
 			if(level_work==0)
@@ -202,11 +474,15 @@ int main(void)
 					HAL_GPIO_WritePin(Compressor_GPIO_Port,Compressor_Pin,GPIO_PIN_RESET);
 					HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_RESET);
 					comprasor_count=0;
+					ElecValve_count=0;
 				}
 				level_work=1;
+				if(Is_Indoor_Fan_On()){
+					fan_indoor(-1);
+				}
 			}
-			if(Power==3){
-				if(swing_level==-1)
+			if(Power==3 && level_work==1){
+				if(swing_level<0)
 					swing_level=0;
 				if(level_work==1){
 					if(temp_setpoint>envirment_temp+2)
@@ -290,14 +566,14 @@ int main(void)
 				}
 				else if(swing_level==3 && swing_info.on_flag==0)
 				{
-					swing_level=(HAL_GPIO_ReadPin(Compressor_GPIO_Port,Compressor_Pin)==GPIO_PIN_RESET)?10:2;
+					swing_level=(HAL_GPIO_ReadPin(Compressor_GPIO_Port,Compressor_Pin)==GPIO_PIN_RESET || !Is_Indoor_Fan_On())?10:2;
 					swing_loop_count=0;
 				}
 				if(swing_level==10 && HAL_GPIO_ReadPin(Compressor_GPIO_Port,Compressor_Pin)==GPIO_PIN_SET && Is_Indoor_Fan_On())
 					swing_level=2;
 
 	  		}
-			else if(Power==0)
+			else if(Power==0 && level_work==1)
 			{
 				if(HAL_GPIO_ReadPin(Compressor_GPIO_Port,Compressor_Pin))
 				{
@@ -318,10 +594,13 @@ int main(void)
 					swing_loop_count=0;
 					swing_level=-1;
 				}
-				else if(swing_info.on_flag==0)
+				else if(swing_info.on_flag==0){
 					swing_loop_count=0;
+					level_work=0;
+					Work_Mode=0;
+				}
 			}
-			break;
+		break;
 		case fan_mode:
 			if(HAL_GPIO_ReadPin(Compressor_GPIO_Port,Compressor_Pin))
 			{
@@ -340,7 +619,7 @@ int main(void)
 			}
 			if(Power==3)
 			{
-				if(swing_level==10 || swing_level==-1)
+				if(swing_level==10 || swing_level<0)
 					swing_level=0;
 				fan_indoor(indoor_fan_mode);
 				if(swing_level==0 && swing_loop_count==0)
@@ -587,6 +866,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		comprasor_count++;
 		ElecValve_count++;
 		count_fan++;
+		comprasor_dry_count++;
 		adc_temp_avg=0;
 		for(ind=0;ind<10;ind++)
 			adc_temp_avg+=ADC_temp1_ok[ind];
@@ -616,7 +896,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					HAL_GPIO_WritePin(Swing_M_3_GPIO_Port,Swing_M_3_Pin,(swing_info.dir==1)?swing_loop_count%4==2:swing_loop_count%4==1);
 					HAL_GPIO_WritePin(Swing_M_4_GPIO_Port,Swing_M_4_Pin,(swing_info.dir==1)?swing_loop_count%4==3:swing_loop_count%4==0);
 				}
-				else if(swing_loop_count>=swing_info.n+(swing_mode==01 && ((Work_Mode==fan_mode && swing_info.dir==2)|| (Work_Mode==heat_mode && swing_info.dir==1)))*swing_info.off_time*50)
+				else if(swing_loop_count>=swing_info.n+(swing_mode==01 && (((Work_Mode==fan_mode|| Work_Mode==cool_mode || Work_Mode==dry_mode) && swing_info.dir==2)|| (Work_Mode==heat_mode && swing_info.dir==1)))*swing_info.off_time*50)
 				{
 					swing_info.on_flag=0;
 				}
@@ -745,6 +1025,10 @@ void ir_praser()
 	if(rec_bits[49]!=rec_bits[57]){
 		Power=3*rec_bits[57];
 	}
+	/*if(Power==0 && p==3)
+	{
+		level_work=0;
+	}*/
 	/*if(Power==0 && p==3){
 			on_off_flag=2;
 			swing_info.n=170*4;
@@ -772,7 +1056,16 @@ void ir_praser()
 	//mode
 	if(rec_bits[69]!=rec_bits[77] && rec_bits[70]!=rec_bits[78] && rec_bits[71]!=rec_bits[79])
 	{
-		Work_Mode=rec_bits[69]*100+rec_bits[70]*10+rec_bits[71];
+		int pre_mode=Work_Mode;
+		if((rec_bits[69]*100+rec_bits[70]*10+rec_bits[71])!=auto_mode){
+			Work_Mode=rec_bits[69]*100+rec_bits[70]*10+rec_bits[71];
+			auto_mode_selected=0;
+		}
+		else 
+			auto_mode_selected=1;
+
+		if(pre_mode!=Work_Mode && !auto_mode_selected)
+			level_work=0;
 	}
 	
 	//Temp
