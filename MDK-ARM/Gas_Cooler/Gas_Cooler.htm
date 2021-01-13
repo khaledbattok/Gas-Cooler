@@ -3,7 +3,7 @@
 <title>Static Call Graph - [Gas_Cooler\Gas_Cooler.axf]</title></head>
 <body><HR>
 <H1>Static Call Graph for image Gas_Cooler\Gas_Cooler.axf</H1><HR>
-<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 5060422: Last Updated: Tue Jan 12 15:41:47 2021
+<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 5060422: Last Updated: Wed Jan 13 14:32:40 2021
 <BR><P>
 <H3>Maximum Stack Usage =        208 bytes + Unknown(Cycles, Untraceable Function Pointers)</H3><H3>
 Call chain for Maximum Stack Depth:</H3>
@@ -1076,7 +1076,7 @@ Global Symbols
 <BR>[Called By]<UL><LI><a href="#[78]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;HAL_TIM_PeriodElapsedCallback
 </UL>
 
-<P><STRONG><a name="[96]"></a>fan_indoor</STRONG> (Thumb, 230 bytes, Stack size 24 bytes, main.o(i.fan_indoor))
+<P><STRONG><a name="[96]"></a>fan_indoor</STRONG> (Thumb, 242 bytes, Stack size 24 bytes, main.o(i.fan_indoor))
 <BR><BR>[Stack]<UL><LI>Max Depth = 40<LI>Call Chain = fan_indoor &rArr; HAL_Delay
 </UL>
 <BR>[Calls]<UL><LI><a href="#[80]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;HAL_GPIO_ReadPin
@@ -1086,8 +1086,8 @@ Global Symbols
 <BR>[Called By]<UL><LI><a href="#[23]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[97]"></a>ir_praser</STRONG> (Thumb, 524 bytes, Stack size 24 bytes, main.o(i.ir_praser))
-<BR><BR>[Stack]<UL><LI>Max Depth = 104<LI>Call Chain = ir_praser &rArr; Write_To_Flash &rArr; HAL_FLASH_Program &rArr; FLASH_WaitForLastOperation &rArr; FLASH_SetErrorCode
+<P><STRONG><a name="[97]"></a>ir_praser</STRONG> (Thumb, 614 bytes, Stack size 32 bytes, main.o(i.ir_praser))
+<BR><BR>[Stack]<UL><LI>Max Depth = 112<LI>Call Chain = ir_praser &rArr; Write_To_Flash &rArr; HAL_FLASH_Program &rArr; FLASH_WaitForLastOperation &rArr; FLASH_SetErrorCode
 </UL>
 <BR>[Calls]<UL><LI><a href="#[5a]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;HAL_Delay
 <LI><a href="#[8a]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;Write_To_Flash
@@ -1098,7 +1098,7 @@ Global Symbols
 <BR>[Called By]<UL><LI><a href="#[23]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[23]"></a>main</STRONG> (Thumb, 2612 bytes, Stack size 8 bytes, main.o(i.main))
+<P><STRONG><a name="[23]"></a>main</STRONG> (Thumb, 2652 bytes, Stack size 8 bytes, main.o(i.main))
 <BR><BR>[Stack]<UL><LI>Max Depth = 208<LI>Call Chain = main &rArr; SystemClock_Config &rArr; HAL_RCC_ClockConfig &rArr; HAL_RCC_GetSysClockFreq &rArr; __aeabi_uldivmod &rArr; __aeabi_llsr
 </UL>
 <BR>[Calls]<UL><LI><a href="#[40]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;__aeabi_i2f
