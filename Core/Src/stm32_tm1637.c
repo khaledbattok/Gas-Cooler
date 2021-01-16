@@ -73,6 +73,33 @@ void tm1637DisplayDecimal(int v, int displaySeparator)
 
     _tm1637Stop();
 }
+void tm1637Display_null(int v, int displaySeparator)
+{
+    unsigned char digitArr[5];
+    for (int i = 0; i < 5; ++i) {
+			digitArr[i] = (i>2)?0x40:segmentMap[v % 10];
+        if (i == 2 && displaySeparator) {
+            digitArr[i] |= 1 << 7;
+        }
+        v /= 10;
+    }
+
+    _tm1637Start();
+    _tm1637WriteByte(0x40);
+    _tm1637ReadResult();
+    _tm1637Stop();
+
+    _tm1637Start();
+    _tm1637WriteByte(0xc0);
+    _tm1637ReadResult();
+
+    for (int i = 0; i < 5; ++i) {
+        _tm1637WriteByte(digitArr[4 - i]);
+        _tm1637ReadResult();
+    }
+
+    _tm1637Stop();
+}
 void tm1637DisplayString()
 {
     unsigned char digitArr[5];
@@ -82,6 +109,33 @@ void tm1637DisplayString()
             digitArr[i] |= 1 << 7;
         }
        // v /= 10;
+    }
+
+    _tm1637Start();
+    _tm1637WriteByte(0x40);
+    _tm1637ReadResult();
+    _tm1637Stop();
+
+    _tm1637Start();
+    _tm1637WriteByte(0xc0);
+    _tm1637ReadResult();
+
+    for (int i = 0; i < 5; ++i) {
+        _tm1637WriteByte(digitArr[4 - i]);
+        _tm1637ReadResult();
+    }
+
+    _tm1637Stop();
+}
+void tm1637DisplayError(int error,int v)
+{
+    unsigned char digitArr[5];
+    for (int i = 0; i < 5; ++i) {
+			digitArr[i] = digitArr[i] = (i==3)?segmentMap[14]:(i==4)?segmentMap[error]:segmentMap[v % 10];
+        if (i == 2) {
+            digitArr[i] |= 1 << 7;
+        }
+        v /= 10;
     }
 
     _tm1637Start();

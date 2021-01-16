@@ -60,7 +60,8 @@ uint32_t data[50];
 int Count_Seg=23,Count_Show;
 int Flag_IR;
 int i,count,debunce_rep=100,debunce=100;
-int Power,Timing,Sleeping,flag_Read_IR,count_read;
+int Power,Timing,Sleeping,flag_Read_IR;
+int sleep_count=0,timer_count;
 int cnt=0;
 float envirment_temp;
 float pipe_temp;
@@ -69,8 +70,9 @@ int temp_setpoint;
 int Timer_setpoint;
 int comprasor_count,ElecValve_count,swing_time_count,swing_loop_count,swing_dir,on_off_flag,swing_mode;
 FLASH_EraseInitTypeDef EraseInitStruct;
-uint32_t pageAddress_start=0x0800E000;
-uint32_t pageAddress_Set_Point=0x0800E800;
+uint32_t pageAddress_1=0x0800E000;
+uint32_t pageAddress_2=0x0800E400;
+uint32_t pageAddress_3=0x0800E800;
 uint32_t PAGEError=0;
 int Work_Mode;
 int auto_mode_selected;
@@ -92,6 +94,7 @@ int level_work;
 int indoor_fan_mode;
 int comprasor_dry_count;
 int turbo_flag;
+uint32_t ir_32bit_arr[3];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -108,11 +111,10 @@ void fan_indoor(int speed);
 float adc2temp(uint32_t adc);
 void ir_praser(void);
 void Write_To_Flash(uint32_t data,uint32_t Address,uint8_t num_page);
-void swing_init(void);
-void swing_process();
-void swing_off(void);
-void swing_stop(void);
 int Is_Indoor_Fan_On(void);
+int Is_Ir_Valid(void);
+void ir_bits_to_32_bit_arr(void);
+void _32_bit_arr_to_ir_bits(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -155,18 +157,23 @@ int main(void)
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 	tm1637Init();
-	Power=*(__IO uint32_t *)(pageAddress_start);
+	ir_32bit_arr[0]=*(__IO uint32_t *)(pageAddress_1);
+	ir_32bit_arr[1]=*(__IO uint32_t *)(pageAddress_2);
+	ir_32bit_arr[2]=*(__IO uint32_t *)(pageAddress_3);
+	_32_bit_arr_to_ir_bits();
+	ir_praser();
+	/*Power=*(__IO uint32_t *)(pageAddress_start);
 	if(Power==3){
-		temp_setpoint=*(__IO uint32_t *)(pageAddress_Set_Point);
-		tm1637SetBrightness(4);
-		Count_Show=(temp_setpoint*1000)+(3*100)+(Timing*10)+Sleeping;
-		HAL_Delay(10);
-			tm1637DisplayDecimal(Count_Show, 0);
+	temp_setpoint=*(__IO uint32_t *)(pageAddress_Set_Point);
+	tm1637SetBrightness(4);
+	Count_Show=(temp_setpoint*1000)+(3*100)+(Timing*10)+Sleeping;
+	HAL_Delay(10);
+	tm1637DisplayDecimal(Count_Show, 0);
 	}
 	else
 	{
 		tm1637SetBrightness(0);	
-	}
+	}*/
 	//tm1637DisplayString();
 	HAL_TIM_Base_Start_IT(&htim14);
 	HAL_TIM_Base_Start_IT(&htim3);
@@ -179,9 +186,6 @@ int main(void)
 	HAL_GPIO_WritePin(Buzzer_GPIO_Port,Buzzer_Pin,GPIO_PIN_SET);
 	HAL_Delay(50);
 	HAL_GPIO_WritePin(Buzzer_GPIO_Port,Buzzer_Pin,GPIO_PIN_RESET);
-	//fan_indoor(1);
-	//HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_SET);
-	//HAL_GPIO_WritePin(Compressor_GPIO_Port,Compressor_Pin,GPIO_PIN_SET);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -708,129 +712,20 @@ int main(void)
 			}	
 		break;
 	  }
-	  /*
-		if(Work_Mode==fan_mode && on_off_flag==1)
-		{
-			if(HAL_GPIO_ReadPin(Compressor_GPIO_Port,Compressor_Pin))
-			{
-					HAL_GPIO_WritePin(Compressor_GPIO_Port,Compressor_Pin,GPIO_PIN_RESET);
-					HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_RESET);
-					comprasor_count=0;
-			}
-		}
-		if(Work_Mode==fan_mode && on_off_flag==2)
-			fan_indoor(0);
-		if(Work_Mode==cool_mode && on_off_flag==1)
-		{
-			if(envirment_temp>temp_setpoint+2){
-				if(comprasor_count*0.5/60>3)
-				{
-					HAL_GPIO_WritePin(Compressor_GPIO_Port,Compressor_Pin,GPIO_PIN_SET);
-					HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_SET);
-				}
-			}
-			else if(envirment_temp<temp_setpoint-2){
-					HAL_GPIO_WritePin(Compressor_GPIO_Port,Compressor_Pin,GPIO_PIN_RESET);
-					HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_RESET);
-					comprasor_count=0;
-			}
-		}
-		if(Work_Mode==cool_mode && on_off_flag==2)
-		{
-			if(HAL_GPIO_ReadPin(Compressor_GPIO_Port,Compressor_Pin))
-			{
-					HAL_GPIO_WritePin(Compressor_GPIO_Port,Compressor_Pin,GPIO_PIN_RESET);
-					HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_RESET);
-					comprasor_count=0;
-			}
-				if(count_fan*0.5>=30 && count_fan*0.5<=32){
-					fan_indoor(0);
-					swing_info.on_flag=1;
-				}
-				else if(swing_info.on_flag!=0 && count_fan*0.5>=32 && count_fan*0.5<=34)
-				{
-					swing_info.n=170*2;
-					swing_info.dir=2;
-					swing_info.level=1;
-					swing_loop_count=0;
-			}
-		}
-		
-		if(Work_Mode==heat_mode && on_off_flag==1)
-		{
-			HAL_GPIO_WritePin(ElecValve_GPIO_Port,ElecValve_Pin,GPIO_PIN_SET);
-			if(envirment_temp<temp_setpoint-2){
-				if(comprasor_count*0.5/60>3)
-				{
-					HAL_GPIO_WritePin(Compressor_GPIO_Port,Compressor_Pin,GPIO_PIN_SET);
-					HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_SET);
-				}
-			}
-			else if(envirment_temp>temp_setpoint+2){
-					HAL_GPIO_WritePin(Compressor_GPIO_Port,Compressor_Pin,GPIO_PIN_RESET);
-					HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_RESET);
-					comprasor_count=0;
-			}
-		}
-		if(Work_Mode==heat_mode && on_off_flag==2)
-		{
-			fan_indoor(0);
-			if(HAL_GPIO_ReadPin(Compressor_GPIO_Port,Compressor_Pin))
-			{
-					HAL_GPIO_WritePin(Compressor_GPIO_Port,Compressor_Pin,GPIO_PIN_RESET);
-					HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_RESET);
-					comprasor_count=0;
-			}
-			if(ElecValve_count*0.5/60>2)
-			{
-				HAL_GPIO_WritePin(ElecValve_GPIO_Port,ElecValve_Pin,GPIO_PIN_RESET);
-			}
-			
-		}
-		*/
-			
-		//swing_process(1);
-		/*tm1637SetBrightness(4);
-		Count_Show=((ADC_Value[4]/100)*1000)+(3*100)+(Timing*10)+Sleeping;
-		tm1637DisplayDecimal(Count_Show, 0);
-		HAL_Delay(1000);
-		Count_Show=(88*1000)+(3*100)+(Timing*10)+Sleeping;
-		tm1637DisplayDecimal(Count_Show, 0);
-		HAL_Delay(1000);
-		Count_Show=(((ADC_Value[4])%100)*1000)+(3*100)+(Timing*10)+Sleeping;
-		tm1637DisplayDecimal(Count_Show, 0);
-		HAL_Delay(1000);*/
-		//fan_indoor();
-		/*while(++cnt<500)
-			swing_m_on_cw();
-		cnt=0;
-		while(++cnt<500)
-			swing_m_on_ccw();
-		cnt=0;*/
-		
-		//flow_m_on_cw();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 		if(Flag_IR==1)
 		{
 			HAL_NVIC_DisableIRQ(EXTI4_15_IRQn);
-			//HAL_Delay(1);
 			if(HAL_GPIO_ReadPin (GPIOC, GPIO_PIN_13)==GPIO_PIN_RESET)
 			{		
 				receive_data();
-//			convert_code(data[2]);
 				ir_praser();
 			}
 			Flag_IR=0;
 			HAL_NVIC_EnableIRQ(EXTI4_15_IRQn);
 		}
-
-//		HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_SET);
-//		HAL_Delay(2000);
-//		HAL_GPIO_WritePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin,GPIO_PIN_RESET);
-//		HAL_Delay(2000);
-		
   }
   /* USER CODE END 3 */
 }
@@ -883,6 +778,46 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		ElecValve_count++;
 		count_fan++;
 		comprasor_dry_count++;
+		sleep_count++;
+		timer_count++;
+		if(((Work_Mode==heat_mode && !Is_Indoor_Fan_On())||(((Work_Mode==cool_mode || Work_Mode==dry_mode ) && HAL_GPIO_ReadPin(ElecValve_GPIO_Port,ElecValve_Pin)))) &&(!Timing || (Timing && timer_count>15)))
+		{
+			Count_Show=(temp_setpoint*1000)+(((comprasor_count%2)*3)*100)+(Timing*10)+Sleeping;
+			tm1637DisplayDecimal(Count_Show, 0);
+		}
+		else if(Work_Mode==heat_mode &&(!Timing || (Timing && timer_count>15))){
+			Count_Show=(temp_setpoint*1000)+(Power*100)+(Timing*10)+Sleeping;
+			tm1637DisplayDecimal(Count_Show, 0);
+		}
+
+		if(Timing)
+		{
+			if(timer_count<10)
+			{
+				tm1637SetBrightness(4*(timer_count%2==0));
+				Count_Show=(Timer_setpoint*1000)+(Power*100)+(Timing*10)+Sleeping;
+				tm1637DisplayDecimal(Count_Show, 0);
+			}
+			else if(timer_count<15)
+			{
+				tm1637SetBrightness((Sleeping && sleep_count*0.5>10)?0:4);
+				Count_Show=(temp_setpoint*1000)+(Power*100)+(Timing*10)+Sleeping;
+				if(Work_Mode==fan_mode || Work_Mode==dry_mode)
+					tm1637Display_null(Count_Show, 0);
+				else
+					tm1637DisplayDecimal(Count_Show, 0);
+			}
+			if(timer_count*0.5/3600>=Timer_setpoint)
+			{
+				Power=0;
+				timer_count=0;
+				Timing=0;
+				tm1637SetBrightness(0);
+			}
+		}
+		if(Sleeping && sleep_count*0.5>10){
+			tm1637SetBrightness(0);
+		}
 		adc_temp_avg=0;
 		for(ind=0;ind<10;ind++)
 			adc_temp_avg+=ADC_temp1_ok[ind];
@@ -893,11 +828,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			adc_temp_avg+=ADC_temp2_ok[ind];
 		adc_temp_avg=adc_temp_avg/10;
 		pipe_temp=adc2temp(adc_temp_avg);
-//		Count_Seg++;
-//		if(Count_Seg>100)
-//			Count_Seg=0;
-//		Count_Show=(Count_Seg*1000)+(0)+(30)+3;
-//		tm1637DisplayDecimal(Count_Show, 0);
 	}
 		if(htim==&htim3){
 			ADC_temp1_ok[adc_count]=ADC_Value[0];
@@ -917,58 +847,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					swing_info.on_flag=0;
 				}
 			}
-			/*if(swing_info.on_flag && swing_info.level==1){
-				HAL_GPIO_WritePin(Swing_M_1_GPIO_Port,Swing_M_1_Pin,(swing_info.dir==1)?swing_loop_count%4==0:swing_loop_count%4==3);
-				HAL_GPIO_WritePin(Swing_M_2_GPIO_Port,Swing_M_2_Pin,(swing_info.dir==1)?swing_loop_count%4==1:swing_loop_count%4==2);
-				HAL_GPIO_WritePin(Swing_M_3_GPIO_Port,Swing_M_3_Pin,(swing_info.dir==1)?swing_loop_count%4==2:swing_loop_count%4==1);
-				HAL_GPIO_WritePin(Swing_M_4_GPIO_Port,Swing_M_4_Pin,(swing_info.dir==1)?swing_loop_count%4==3:swing_loop_count%4==0);
-				swing_loop_count++;
-			}
-			
-			if(swing_info.n<=swing_loop_count && swing_info.level==1){
-				swing_info.on_flag=0;
-				swing_loop_count=0;
-				swing_info.level=2;
-				swing_info.dir=(swing_info.dir+1)%2;
-				if(Work_Mode==cool_mode && on_off_flag==2 && swing_mode!=01 && count_fan<0)
-					swing_mode=01;
-				else if(Work_Mode==cool_mode && on_off_flag==2 && count_fan*0.5>=35)
-					swing_mode=00;
-			}
-			
-			else if((swing_info.level==0||swing_info.level==2) &&(Work_Mode==cool_mode || on_off_flag==1)){
-				switch (swing_mode){
-					case (01) :
-						HAL_GPIO_WritePin(Swing_M_1_GPIO_Port,Swing_M_1_Pin,(swing_info.dir==1)?swing_loop_count%4==0:swing_loop_count%4==3);
-						HAL_GPIO_WritePin(Swing_M_2_GPIO_Port,Swing_M_2_Pin,(swing_info.dir==1)?swing_loop_count%4==1:swing_loop_count%4==2);
-						HAL_GPIO_WritePin(Swing_M_3_GPIO_Port,Swing_M_3_Pin,(swing_info.dir==1)?swing_loop_count%4==2:swing_loop_count%4==1);
-						HAL_GPIO_WritePin(Swing_M_4_GPIO_Port,Swing_M_4_Pin,(swing_info.dir==1)?swing_loop_count%4==3:swing_loop_count%4==0);
-						swing_loop_count++;
-						if((swing_info.level==2 && swing_loop_count>=150*3) || (swing_info.level==0 && swing_loop_count>=120*3)){
-							swing_info.level=0;
-							swing_loop_count=0;
-							swing_info.dir=(swing_info.dir+1)%2;
-							if(Work_Mode==cool_mode && on_off_flag==2)
-								swing_mode=0;
-								count_fan=0;
-						}
-					break;
-				case (10) :
-						swing_loop_count++;
-					if(swing_loop_count<=120*3){
-						HAL_GPIO_WritePin(Swing_M_1_GPIO_Port,Swing_M_1_Pin,(swing_info.dir==1)?swing_loop_count%4==0:swing_loop_count%4==3);
-						HAL_GPIO_WritePin(Swing_M_2_GPIO_Port,Swing_M_2_Pin,(swing_info.dir==1)?swing_loop_count%4==1:swing_loop_count%4==2);
-						HAL_GPIO_WritePin(Swing_M_3_GPIO_Port,Swing_M_3_Pin,(swing_info.dir==1)?swing_loop_count%4==2:swing_loop_count%4==1);
-						HAL_GPIO_WritePin(Swing_M_4_GPIO_Port,Swing_M_4_Pin,(swing_info.dir==1)?swing_loop_count%4==3:swing_loop_count%4==0);}
-						else if((swing_loop_count>=170*3 && swing_info.dir==1)|| swing_info.dir%2==0){
-							swing_loop_count=0;
-							swing_info.dir=(swing_info.dir+1)%2;
-						}
-					
-					
-				}
-				
-			}*/
 			
 			if(air_flow_flag && Power==3)
 			{
@@ -1036,42 +914,13 @@ void receive_data (void)
 }
 void ir_praser()
 {
-	//on/off
-	int p=Power;
-	if(rec_bits[49]!=rec_bits[57]){
+	flag_Read_IR=Is_Ir_Valid();
+	
+	if(flag_Read_IR)
+	{
+		//on/off
 		Power=3*rec_bits[57];
-	}
-	/*if(Power==0 && p==3)
-	{
-		level_work=0;
-	}*/
-	/*if(Power==0 && p==3){
-			on_off_flag=2;
-			swing_info.n=170*4;
-		if(Work_Mode==cool_mode)
-			swing_info.dir=1;
-		else
-			swing_info.dir=2;
-		swing_info.on_flag=1;
-		swing_info.level=1;
-		swing_loop_count=0;
-		count_fan=-10000;
-		if(Work_Mode==heat_mode)
-				ElecValve_count=0;
-	}
-	if(Power==3 && p==0)
-	{
-		on_off_flag=1;
-			swing_info.n=170*4;
-			swing_info.dir=1;
-			swing_info.on_flag=1;
-			swing_info.level=1;
-			swing_loop_count=0;
-	}
-	*/
 	//mode
-	if(rec_bits[69]!=rec_bits[77] && rec_bits[70]!=rec_bits[78] && rec_bits[71]!=rec_bits[79])
-	{
 		int pre_mode=Work_Mode;
 		switch((rec_bits[69]*100+rec_bits[70]*10+rec_bits[71])){
 			case 1:
@@ -1101,164 +950,86 @@ void ir_praser()
 			swing_loop_count=0;
 			swing_info.on_flag=0;
 		}
-	}
 	
 	//Temp
-	if(rec_bits[72]!=rec_bits[64] && rec_bits[73]!=rec_bits[65] && rec_bits[74]!=rec_bits[66] && rec_bits[75]!=rec_bits[67] && rec_bits[76]!=rec_bits[68])
 		temp_setpoint=rec_bits[72]+rec_bits[73]*2+rec_bits[74]*4+rec_bits[75]*8+rec_bits[76]*16+16;	
 		
 	//fan speed
-	if(rec_bits[53]!=rec_bits[61] && rec_bits[54]!=rec_bits[62]){
-		flag_Read_IR=1;
 		indoor_fan_mode=rec_bits[53]*10+rec_bits[54];
-	}
 	//swing
-	if(rec_bits[50]!=rec_bits[58] && rec_bits[51]!=rec_bits[59]){
 		swing_mode=rec_bits[50]*10+rec_bits[51];
 		swing_info.step=(swing_mode==11)?0:1;
-			/*case (11) :
-				swing_mode=11
-			break;
-			case (01) :
-				swing_process();
-			break;
-			case (10) :
-				swing_process();
-			break;*/
-	}	
 
 	//air flow
-	if(rec_bits[52]!=rec_bits[60]){
 		air_flow_flag=rec_bits[52];
-	}	
 	
 	//timer
-	if(rec_bits[8]!=rec_bits[0] && rec_bits[9]!=rec_bits[1] && rec_bits[10]!=rec_bits[2] && rec_bits[11]!=rec_bits[3] && rec_bits[12]!=rec_bits[4])
-	{
+		if((Timing==0 && rec_bits[15]==1) || Timer_setpoint!=(rec_bits[8]+rec_bits[9]*2+rec_bits[10]*4+rec_bits[11]*8+rec_bits[12]*16))
+			timer_count=0;
 		Timing=3*rec_bits[15];
-		Timer_setpoint=rec_bits[8]+rec_bits[9]*2+rec_bits[10]*4+rec_bits[11]*8+rec_bits[12]*16;
-	}
+		Timer_setpoint=(Timing)?rec_bits[8]+rec_bits[9]*2+rec_bits[10]*4+rec_bits[11]*8+rec_bits[12]*16:10000;
 	
 	//hold
-	if(rec_bits[18]!=rec_bits[26]){
-	}
 	
 	//sleep
-	if(rec_bits[48]!=rec_bits[56]){
 		Sleeping=3*rec_bits[56];
-	}
+		if(Sleeping)
+			sleep_count=0;
 	//turbo
-	if(rec_bits[19]!=rec_bits[27]){
 		if(rec_bits[27]==1)
 		{
 			turbo_flag=1;
+			indoor_fan_mode=11;
 		}
 		else if(rec_bits[27]==0)
 		{
 			turbo_flag=0;
 		}
-	}
-	
+
 	if(Power!=0)
 	{
 		tm1637SetBrightness(4);
-		if(Timing){
-			Count_Show=(Timer_setpoint*1000)+(Power*100)+(Timing*10)+Sleeping;
-			tm1637DisplayDecimal(Count_Show, 0);
-			HAL_Delay(2000);
-		}
-			Count_Show=(temp_setpoint*1000)+(Power*100)+(Timing*10)+Sleeping;
+		Count_Show=(temp_setpoint*1000)+(Power*100)+(Timing*10)+Sleeping;
+		if(Work_Mode==fan_mode || Work_Mode==dry_mode)
+			tm1637Display_null(Count_Show, 0);
+		else
 			tm1637DisplayDecimal(Count_Show, 0);
 			
 	}
 	else{
-		tm1637SetBrightness(0);}
-	//lamp
-	if(rec_bits[16]!=rec_bits[24] && Power){
-				tm1637SetBrightness(4*rec_bits[16]);
+		tm1637SetBrightness(0);
 	}
+	//lamp
+	if(Power){
+			tm1637SetBrightness(4*rec_bits[16]);
+	}
+
+	ir_bits_to_32_bit_arr();
+	Write_To_Flash(ir_32bit_arr[0],pageAddress_1,2);
+	Write_To_Flash(ir_32bit_arr[1],pageAddress_2,2);
+	Write_To_Flash(ir_32bit_arr[2],pageAddress_3,3);
 	
-	if(turbo_flag)
-		indoor_fan_mode=11;
-	Write_To_Flash(Power,pageAddress_start,2);
-	Write_To_Flash(temp_setpoint,pageAddress_Set_Point,3);
- /*switch (code)//
- {
-	 	case (0x2AFFFFFF):
-			flag_Read_IR=1;
-			Power=3;		
-			tm1637SetBrightness(4);		
-			Count_Show=(Count_Seg*1000)+(Power*100)+(Timing*10)+Sleeping;
-			tm1637DisplayDecimal(Count_Show, 0);
-		break;
-		case (0x2AFFFFF3):
-				flag_Read_IR=1;
-				Power=0;
-				tm1637SetBrightness(0);
-		break;
-	case (0x807FC03F):
-		flag_Read_IR=1;
-		HAL_GPIO_TogglePin(Fan_Indoor_1_GPIO_Port,Fan_Indoor_1_Pin);
-		break;
-	case (0x807FA05F):
-		flag_Read_IR=1;
-		HAL_GPIO_TogglePin(Fan_Indoor_2_GPIO_Port,Fan_Indoor_2_Pin);
-		break;
-	case (0x807FE01F):
-		flag_Read_IR=1;
-		HAL_GPIO_TogglePin(Fan_Indoor_3_GPIO_Port,Fan_Indoor_3_Pin);
-		break;
-	case (0x807F906F):
-		flag_Read_IR=1;
-		HAL_GPIO_TogglePin(Fan_Compressor_GPIO_Port,Fan_Compressor_Pin);
-		break;
-	case (0x807FD02F):
-		flag_Read_IR=1;
-		HAL_GPIO_TogglePin(Compressor_GPIO_Port,Compressor_Pin);
-		break;//
-	case (0x807FB04F):
-		flag_Read_IR=1;
-		HAL_GPIO_TogglePin(ElecValve_GPIO_Port,ElecValve_Pin);
-		break;
-	case (0x807FE817):
-		flag_Read_IR=1;
-		Count_Seg++;
-		Count_Show=(Count_Seg*1000)+300;
-		tm1637DisplayDecimal(Count_Show, 0);
-		break;
-	case (0x807FB847):
-		flag_Read_IR=1;
-		Count_Seg--;
-		Count_Show=(Count_Seg*1000)+300;
-		tm1637DisplayDecimal(Count_Show, 0);
-		break;
-	case (0x807FB44B):
-		flag_Read_IR=1;
-		if(Timing==0)
-			Timing=3;
-		else if(Timing==3)
-			Timing=0;
-		Count_Show=(Count_Seg*1000)+(Power*100)+(Timing*10)+Sleeping;
-		tm1637DisplayDecimal(Count_Show, 0);
-		break;
-	case (0x807FFC03):
-		flag_Read_IR=1;
-		if(Sleeping==0)
-			Sleeping=3;
-		else if(Sleeping==3)
-			Sleeping=0;
-		Count_Show=(Count_Seg*1000)+(Power*100)+(Timing*10)+Sleeping;
-		tm1637DisplayDecimal(Count_Show, 0);
-		break;
-	}*/
- if(flag_Read_IR==1)
- {
-	 flag_Read_IR=0;
-	 HAL_GPIO_WritePin(Buzzer_GPIO_Port,Buzzer_Pin,GPIO_PIN_SET);
-		HAL_Delay(50);
-		HAL_GPIO_WritePin(Buzzer_GPIO_Port,Buzzer_Pin,GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(Buzzer_GPIO_Port,Buzzer_Pin,GPIO_PIN_SET);
+	HAL_Delay(50);
+	HAL_GPIO_WritePin(Buzzer_GPIO_Port,Buzzer_Pin,GPIO_PIN_RESET);
  }
  }
+int Is_Ir_Valid(){
+	int ans=1;
+	ans=ans && (rec_bits[49]!=rec_bits[57]);
+	ans=ans && rec_bits[69]!=rec_bits[77] && rec_bits[70]!=rec_bits[78] && rec_bits[71]!=rec_bits[79];
+	ans=ans && rec_bits[72]!=rec_bits[64] && rec_bits[73]!=rec_bits[65] && rec_bits[74]!=rec_bits[66] && rec_bits[75]!=rec_bits[67] && rec_bits[76]!=rec_bits[68];
+	ans=ans && rec_bits[53]!=rec_bits[61] && rec_bits[54]!=rec_bits[62];
+	ans=ans && rec_bits[50]!=rec_bits[58] && rec_bits[51]!=rec_bits[59];
+	ans=ans && rec_bits[52]!=rec_bits[60];
+	ans=ans && rec_bits[8]!=rec_bits[0] && rec_bits[9]!=rec_bits[1] && rec_bits[10]!=rec_bits[2] && rec_bits[11]!=rec_bits[3] && rec_bits[12]!=rec_bits[4];
+	ans=ans && rec_bits[18]!=rec_bits[26];
+	ans=ans && rec_bits[48]!=rec_bits[56];
+	ans=ans && rec_bits[19]!=rec_bits[27];
+	ans=ans && rec_bits[16]!=rec_bits[24];
+	
+	return ans;
+}
 void DWT_Delay_us(uint32_t ticks)
 {
 //	while(ticks--);
@@ -1268,134 +1039,6 @@ void DWT_Delay_us(uint32_t ticks)
 int Is_Indoor_Fan_On()
 {
 	return HAL_GPIO_ReadPin(Fan_Indoor_1_GPIO_Port,Fan_Indoor_1_Pin) || HAL_GPIO_ReadPin(Fan_Indoor_2_GPIO_Port,Fan_Indoor_2_Pin) || HAL_GPIO_ReadPin(Fan_Indoor_3_GPIO_Port,Fan_Indoor_3_Pin);
-}
-void flow_m_on_ccw(int n){
-int j=0;
-	while(j<n){
-	HAL_GPIO_WritePin(Flow_M_1_GPIO_Port,Flow_M_1_Pin,GPIO_PIN_SET);
-	HAL_GPIO_WritePin(Flow_M_2_GPIO_Port,Flow_M_2_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_3_GPIO_Port,Flow_M_3_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_4_GPIO_Port,Flow_M_4_Pin,GPIO_PIN_RESET);
-	HAL_Delay(motor_delay);
-	HAL_GPIO_WritePin(Flow_M_1_GPIO_Port,Flow_M_1_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_2_GPIO_Port,Flow_M_2_Pin,GPIO_PIN_SET);
-	HAL_GPIO_WritePin(Flow_M_3_GPIO_Port,Flow_M_3_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_4_GPIO_Port,Flow_M_4_Pin,GPIO_PIN_RESET);
-	HAL_Delay(motor_delay);
-	HAL_GPIO_WritePin(Flow_M_1_GPIO_Port,Flow_M_1_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_2_GPIO_Port,Flow_M_2_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_3_GPIO_Port,Flow_M_3_Pin,GPIO_PIN_SET);
-	HAL_GPIO_WritePin(Flow_M_4_GPIO_Port,Flow_M_4_Pin,GPIO_PIN_RESET);
-	HAL_Delay(motor_delay);
-	HAL_GPIO_WritePin(Flow_M_1_GPIO_Port,Flow_M_1_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_2_GPIO_Port,Flow_M_2_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_3_GPIO_Port,Flow_M_3_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_4_GPIO_Port,Flow_M_4_Pin,GPIO_PIN_SET);
-	HAL_Delay(motor_delay);
-	j++;
-	}
-}
-void flow_m_on_cw(int n){
-	int j=0;
-	while(j<n){
-	HAL_GPIO_WritePin(Flow_M_1_GPIO_Port,Flow_M_1_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_2_GPIO_Port,Flow_M_2_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_3_GPIO_Port,Flow_M_3_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_4_GPIO_Port,Flow_M_4_Pin,GPIO_PIN_SET);
-	HAL_Delay(motor_delay);
-	HAL_GPIO_WritePin(Flow_M_1_GPIO_Port,Flow_M_1_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_2_GPIO_Port,Flow_M_2_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_3_GPIO_Port,Flow_M_3_Pin,GPIO_PIN_SET);
-	HAL_GPIO_WritePin(Flow_M_4_GPIO_Port,Flow_M_4_Pin,GPIO_PIN_RESET);
-	HAL_Delay(motor_delay);
-	HAL_GPIO_WritePin(Flow_M_1_GPIO_Port,Flow_M_1_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_2_GPIO_Port,Flow_M_2_Pin,GPIO_PIN_SET);
-	HAL_GPIO_WritePin(Flow_M_3_GPIO_Port,Flow_M_3_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_4_GPIO_Port,Flow_M_4_Pin,GPIO_PIN_RESET);
-	HAL_Delay(motor_delay);
-	HAL_GPIO_WritePin(Flow_M_1_GPIO_Port,Flow_M_1_Pin,GPIO_PIN_SET);
-	HAL_GPIO_WritePin(Flow_M_2_GPIO_Port,Flow_M_2_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_3_GPIO_Port,Flow_M_3_Pin,GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Flow_M_4_GPIO_Port,Flow_M_4_Pin,GPIO_PIN_RESET);
-	HAL_Delay(motor_delay);
-	j++;
-	}
-}
-void swing_m_on_cw(int n){
-	if(swing_dir==0){
-		swing_dir=1;
-		swing_time_count=0;
-	}
-	if( swing_dir==1){
-		if(swing_loop_count<n ){
-			if(swing_time_count<motor_delay)
-			{	HAL_GPIO_WritePin(Swing_M_1_GPIO_Port,Swing_M_1_Pin,GPIO_PIN_SET);
-				HAL_GPIO_WritePin(Swing_M_2_GPIO_Port,Swing_M_2_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_3_GPIO_Port,Swing_M_3_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_4_GPIO_Port,Swing_M_4_Pin,GPIO_PIN_RESET);}
-			else if(swing_time_count<2*motor_delay)
-			{	HAL_GPIO_WritePin(Swing_M_1_GPIO_Port,Swing_M_1_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_2_GPIO_Port,Swing_M_2_Pin,GPIO_PIN_SET);
-				HAL_GPIO_WritePin(Swing_M_3_GPIO_Port,Swing_M_3_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_4_GPIO_Port,Swing_M_4_Pin,GPIO_PIN_RESET);}
-			else if(swing_time_count<3*motor_delay)
-			{	HAL_GPIO_WritePin(Swing_M_1_GPIO_Port,Swing_M_1_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_2_GPIO_Port,Swing_M_2_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_3_GPIO_Port,Swing_M_3_Pin,GPIO_PIN_SET);
-				HAL_GPIO_WritePin(Swing_M_4_GPIO_Port,Swing_M_4_Pin,GPIO_PIN_RESET);}
-			else if(swing_time_count<4*motor_delay)
-			{	HAL_GPIO_WritePin(Swing_M_1_GPIO_Port,Swing_M_1_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_2_GPIO_Port,Swing_M_2_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_3_GPIO_Port,Swing_M_3_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_4_GPIO_Port,Swing_M_4_Pin,GPIO_PIN_SET);}
-			else{
-				swing_time_count=0;
-				swing_loop_count++;
-			}
-		}
-		else{
-			swing_loop_count=0;
-			swing_dir=0;
-		}
-	}
-}
-void swing_m_on_ccw(int n){
-	if(swing_dir==0){
-		swing_dir=2;
-		swing_time_count=0;
-	}
-	if( swing_dir==2){
-		if(swing_loop_count<n){
-			if(swing_time_count<motor_delay)
-			{	HAL_GPIO_WritePin(Swing_M_1_GPIO_Port,Swing_M_1_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_2_GPIO_Port,Swing_M_2_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_3_GPIO_Port,Swing_M_3_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_4_GPIO_Port,Swing_M_4_Pin,GPIO_PIN_SET);}
-			else if(swing_time_count<2*motor_delay)
-			{	HAL_GPIO_WritePin(Swing_M_1_GPIO_Port,Swing_M_1_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_2_GPIO_Port,Swing_M_2_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_3_GPIO_Port,Swing_M_3_Pin,GPIO_PIN_SET);
-				HAL_GPIO_WritePin(Swing_M_4_GPIO_Port,Swing_M_4_Pin,GPIO_PIN_RESET);}
-			else if(swing_time_count<3*motor_delay)
-			{	HAL_GPIO_WritePin(Swing_M_1_GPIO_Port,Swing_M_1_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_2_GPIO_Port,Swing_M_2_Pin,GPIO_PIN_SET);
-				HAL_GPIO_WritePin(Swing_M_3_GPIO_Port,Swing_M_3_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_4_GPIO_Port,Swing_M_4_Pin,GPIO_PIN_RESET);}
-			else if(swing_time_count<4*motor_delay)
-			{	HAL_GPIO_WritePin(Swing_M_1_GPIO_Port,Swing_M_1_Pin,GPIO_PIN_SET);
-				HAL_GPIO_WritePin(Swing_M_2_GPIO_Port,Swing_M_2_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_3_GPIO_Port,Swing_M_3_Pin,GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Swing_M_4_GPIO_Port,Swing_M_4_Pin,GPIO_PIN_RESET);}
-			else{
-				swing_time_count=0;
-				swing_loop_count++;
-			}
-		}
-		else{
-			swing_dir=0;
-			swing_loop_count=0;
-		}
-	}
 }
 void fan_indoor(int speed){
 	switch(speed)
@@ -1464,25 +1107,27 @@ void Write_To_Flash(uint32_t data,uint32_t Address,uint8_t num_page){
 	HAL_FLASH_Lock();
 }
 
-void swing_init(){
-	if(swing_dir==3)
-		swing_dir=0;
-	swing_m_on_cw(170);
-	swing_m_on_ccw(120);
+void ir_bits_to_32_bit_arr(){
+	int row,col;
+	for(row=0;row<3;row++)
+	{
+		ir_32bit_arr[row]=0;
+		for(col=0;col<32;col++)
+		{
+			ir_32bit_arr[row]|=(rec_bits[32*row+col]<<col);
+		}
+	}
 }
-void swing_process(){
-	if(swing_dir==3)
-		swing_dir=0;
-	swing_m_on_cw(100);
-	swing_m_on_ccw(100);
-}
-void swing_off(){
-	if(swing_dir==3)
-		swing_dir=0;
-	swing_m_on_ccw(170);
-}
-void swing_stop(){
-		swing_dir=3;
+void _32_bit_arr_to_ir_bits()
+{
+	int row,col;
+	for(row=0;row<3;row++)
+	{
+		for(col=0;col<32;col++)
+		{
+			rec_bits[32*row+col]=(ir_32bit_arr[row]>>col)%2;
+		}
+	}
 }
 /* USER CODE END 4 */
 
