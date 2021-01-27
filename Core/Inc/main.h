@@ -65,10 +65,6 @@ void Error_Handler(void);
 #define Temp1_GPIO_Port GPIOA
 #define Temp2_Pin GPIO_PIN_1
 #define Temp2_GPIO_Port GPIOA
-#define Temp3_Pin GPIO_PIN_2
-#define Temp3_GPIO_Port GPIOA
-#define Temp4_Pin GPIO_PIN_3
-#define Temp4_GPIO_Port GPIOA
 #define CT_Pin GPIO_PIN_4
 #define CT_GPIO_Port GPIOA
 #define Flow_M_2_Pin GPIO_PIN_5

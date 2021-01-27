@@ -56,7 +56,7 @@ void MX_ADC_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
-  sConfig.SamplingTime = ADC_SAMPLETIME_28CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_71CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -64,20 +64,6 @@ void MX_ADC_Init(void)
   /** Configure for the selected ADC regular channel to be converted.
   */
   sConfig.Channel = ADC_CHANNEL_1;
-  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure for the selected ADC regular channel to be converted.
-  */
-  sConfig.Channel = ADC_CHANNEL_2;
-  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure for the selected ADC regular channel to be converted.
-  */
-  sConfig.Channel = ADC_CHANNEL_3;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -108,12 +94,9 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* adcHandle)
     /**ADC GPIO Configuration
     PA0     ------> ADC_IN0
     PA1     ------> ADC_IN1
-    PA2     ------> ADC_IN2
-    PA3     ------> ADC_IN3
     PA4     ------> ADC_IN4
     */
-    GPIO_InitStruct.Pin = Temp1_Pin|Temp2_Pin|Temp3_Pin|Temp4_Pin
-                          |CT_Pin;
+    GPIO_InitStruct.Pin = Temp1_Pin|Temp2_Pin|CT_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -155,12 +138,9 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* adcHandle)
     /**ADC GPIO Configuration
     PA0     ------> ADC_IN0
     PA1     ------> ADC_IN1
-    PA2     ------> ADC_IN2
-    PA3     ------> ADC_IN3
     PA4     ------> ADC_IN4
     */
-    HAL_GPIO_DeInit(GPIOA, Temp1_Pin|Temp2_Pin|Temp3_Pin|Temp4_Pin
-                          |CT_Pin);
+    HAL_GPIO_DeInit(GPIOA, Temp1_Pin|Temp2_Pin|CT_Pin);
 
     /* ADC1 DMA DeInit */
     HAL_DMA_DeInit(adcHandle->DMA_Handle);
